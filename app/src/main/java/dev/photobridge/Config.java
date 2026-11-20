@@ -34,6 +34,15 @@ final class Config {
         return pin;
     }
 
+    /** Risoluzione scelta come "LARGHEZZAxALTEZZA"; stringa vuota = automatica. */
+    static String resolution(Context c) {
+        return prefs(c).getString("resolution", "");
+    }
+
+    static void setResolution(Context c, String value) {
+        prefs(c).edit().putString("resolution", value).apply();
+    }
+
     static boolean keepScreenOn(Context c) {
         return prefs(c).getBoolean("keep_screen_on", true);
     }

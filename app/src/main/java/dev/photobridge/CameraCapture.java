@@ -26,6 +26,8 @@ import android.view.Surface;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -65,12 +67,36 @@ final class CameraCapture {
         String id = pickBackCamera(mgr);
         if (id == null) throw new IOException("nessuna fotocamera posteriore trovata");
 
-        Shot shot = new Shot(mgr, id, rotation);
+        Shot shot = new Shot(mgr, id, rotation, Config.resolution(ctx));
         try {
             return shot.run();
         } finally {
             shot.close();
         }
+    }
+
+    /** Risoluzioni JPEG supportate dalla fotocamera posteriore, dalla più grande alla più piccola. */
+    static List<Size> listJpegSizes(Context context) {
+        List<Size> out = new ArrayList<Size>();
+        try {
+            CameraManager mgr = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+            String id = pickBackCamera(mgr);
+            if (id == null) return out;
+            StreamConfigurationMap map = mgr.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            if (map == null) return out;
+            Size[] sizes = map.getOutputSizes(ImageFormat.JPEG);
+            if (sizes != null) {
+                for (Size s : sizes) out.add(s);
+            }
+            Collections.sort(out, new Comparator<Size>() {
+                @Override public int compare(Size a, Size b) {
+                    return Long.compare(area(b), area(a));
+                }
+            });
+        } catch (Exception ignored) {
+        }
+        return out;
     }
 
     private static String pickBackCamera(CameraManager mgr) throws CameraAccessException {
@@ -119,6 +145,7 @@ final class CameraCapture {
         private final CameraManager mgr;
         private final String id;
         private final int rotation;
+        private final String preferredSize;
         private final CameraCharacteristics cc;
 
         private final HandlerThread thread = new HandlerThread("photobridge-camera");
@@ -141,10 +168,11 @@ final class CameraCapture {
         private long phaseStart;
         private boolean stillSent;
 
-        Shot(CameraManager mgr, String id, int rotation) throws CameraAccessException {
+        Shot(CameraManager mgr, String id, int rotation, String preferredSize) throws CameraAccessException {
             this.mgr = mgr;
             this.id = id;
             this.rotation = rotation;
+            this.preferredSize = preferredSize;
             this.cc = mgr.getCameraCharacteristics(id);
         }
 
@@ -261,6 +289,12 @@ final class CameraCapture {
         private Size pickJpegSize(StreamConfigurationMap map) throws IOException {
             Size[] sizes = map.getOutputSizes(ImageFormat.JPEG);
             if (sizes == null || sizes.length == 0) throw new IOException("nessuna risoluzione JPEG disponibile");
+            // risoluzione scelta dall'utente nell'app (se ancora supportata)
+            if (preferredSize != null && !preferredSize.isEmpty()) {
+                for (Size s : sizes) {
+                    if ((s.getWidth() + "x" + s.getHeight()).equals(preferredSize)) return s;
+                }
+            }
             Size best = null;
             Size smallest = sizes[0];
             for (Size s : sizes) {

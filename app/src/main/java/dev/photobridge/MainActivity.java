@@ -11,14 +11,18 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Size;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.net.Inet4Address;
@@ -27,6 +31,7 @@ import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /** Schermata unica: mostra IP:porta e PIN, avvia/ferma il server. */
 public class MainActivity extends Activity {
@@ -122,6 +127,9 @@ public class MainActivity extends Activity {
         });
         root.addView(keep);
 
+        root.addView(text("Risoluzione delle foto:", 14, false, false));
+        root.addView(buildResolutionSpinner());
+
         Button newPin = new Button(this);
         newPin.setText("Genera nuovo PIN");
         newPin.setOnClickListener(new View.OnClickListener() {
@@ -153,6 +161,42 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.addView(root);
         setContentView(scroll);
+    }
+
+    private Spinner buildResolutionSpinner() {
+        final List<Size> sizes = CameraCapture.listJpegSizes(this);
+        List<String> labels = new ArrayList<String>();
+        labels.add("Automatica (fino a ~12 MP)");
+        String saved = Config.resolution(this);
+        int selected = 0;
+        for (int i = 0; i < sizes.size(); i++) {
+            Size s = sizes.get(i);
+            double mp = (double) s.getWidth() * s.getHeight() / 1000000.0;
+            labels.add(s.getWidth() + "\u00d7" + s.getHeight()
+                    + String.format(Locale.ROOT, "  (%.1f MP)", mp));
+            if ((s.getWidth() + "x" + s.getHeight()).equals(saved)) selected = i + 1;
+        }
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+        Spinner spinner = new Spinner(this);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(selected);
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0 || position > sizes.size()) {
+                    Config.setResolution(MainActivity.this, "");
+                } else {
+                    Size s = sizes.get(position - 1);
+                    Config.setResolution(MainActivity.this, s.getWidth() + "x" + s.getHeight());
+                }
+            }
+
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        return spinner;
     }
 
     private void applyKeepScreenOn(boolean on) {
