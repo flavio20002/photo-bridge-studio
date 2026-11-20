@@ -1,0 +1,7 @@
+PhotoBridge - progetto Android Studio
+
+1. Android Studio > File > Open > seleziona questa cartella.
+2. Attendi la sincronizzazione Gradle (JDK 17: Settings > Build Tools > Gradle > Gradle JDK).
+   Se Studio propone di aggiornare il plugin Android Gradle, puoi accettare.
+3. Collega il telefono (debug USB attivo) e premi Run.
+4. Per ottenere un APK: Build > Build APK(s)  ->  app/build/outputs/apk/debug/app-debug.apk
